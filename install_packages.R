@@ -8,3 +8,5 @@ if (!install.packages("dplyr")) {
     install.packages("dplyr", repos='http://cran.us.r-project.org')}
 if (!install.packages("xlsx")) {
     install.packages("xlsx", repos='http://cran.us.r-project.org')}
+if (!install.packages("bigrquery")) {
+    install.packages("bigrquery", repos='http://cran.us.r-project.org')}
