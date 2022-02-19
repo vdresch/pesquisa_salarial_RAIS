@@ -11,7 +11,7 @@ library(bigrquery)
 
 ###########################           Config            ###########################
 
-# Configura????o dos munic??pios, CNAEs e CBOs desejadas na pesquisa
+# Configuração dos municípios, CNAEs e CBOs desejadas na pesquisa
 config_filters <- read_excel("filtros.xlsx", col_types = c("numeric", "numeric", "numeric", "numeric"))
 
 municipios <- config_filters$cod_mun
@@ -19,16 +19,17 @@ cnaes <- config_filters$cnae
 cbos <- config_filters$cbo
 ano_consulta <- config_filters$ano
 
-# billing_id necess??rio para rodar querys no basedosdados
+# billing_id necessário para rodar querys no basedosdados
 config <- yaml.load_file("config.yml")
 basedosdados::set_billing_id(config$billing_id)
 bq_auth(email = config$email)
 
-#Tabela de suporte com nomes dos munic??pios e estados
+#Tabela de suporte com nomes dos municípios, estados e CBOS
 tab_mun <- read_excel("suporte/municipios.xlsx")
 tab_uf <- read_excel("suporte/ufs.xlsx")
+tab_cbos <- read.csv("lista_cbos.csv", encoding = "UTF-8")
 
-###########################           Get data            ###########################
+###########################           Get data            ##########################
 
 #Preparing the query
 
@@ -59,17 +60,17 @@ if(length(cbos) == 1) {
 #CNAEs
 if(!is.na(cnaes)){
     if(length(cnaes) == 1) {
-        query_cnaes <- paste(" and cnae_2 between ", cnaes, "000 and ", cnaes, "999", sep="")
+        query_cnaes <- paste(" and cnae_2 between \"", cnaes, "000\" and \"", cnaes, "999\"", sep="")
     } else {
-        query_cnaes <- " and ((cnae_2 between "
+        query_cnaes <- " and ((cnae_2 between \""
         for(i in cnaes) {
-            query_cnaes <- paste(query_cnaes, i, "000 and ", i, "999 ", sep="")
+            query_cnaes <- paste(query_cnaes, i, "000\" and \"", i, "999\" ", sep="")
         }
-        query_cnaes <- paste(query_cnaes, "x", sep="")
-        query_cnaes = gsub("9 ", "9) or (cnae_2 between ", query_cnaes)
-        query_cnaes = gsub("9 or cnae_2 between x", "9)) ", query_cnaes)
+        query_cnaes <- paste(query_cnaes, "x)", sep="")
+        query_cnaes = gsub("9\" ", "9\") or (cnae_2 between \"", query_cnaes)
+        query_cnaes = gsub("9\"\\) or \\(cnae_2 between \"x\\)", "9\")) ", query_cnaes)
     }
-} else {query_cnae <- ""}
+} else {query_cnaes <- ""}
 
 #Query final
 query <- paste(query, query_mun, query_cbos, query_cnaes, " and ano = ", ano_consulta[1], sep="")
@@ -100,10 +101,12 @@ for(i in 1:nrow(municipios)) {
     #Para cada CBO, um linha
     for(j in  1:length(cbos)) {
         jobs_cbos <- jobs_municipio %>% filter(cbo_2002 == cbos[j])
-        
         tabela <- data.frame()
         tabela[1, 'CBO'] <- cbos[j]
-        #tabela['cbo_nome'] <- cbos[i]
+        tabela[2, 'CBO'] <- ""
+        cbo_i <- subset(tab_cbos, CBO == cbos[j])
+        tabela[1, 'cbo_nome'] <- cbo_i$Nome[1]
+        tabela[2, 'cbo_nome'] <- ""
         tabela[1, 'Total de trabalhadores'] <- lengths(jobs_cbos)[1]
         tabela[2, 'Total de trabalhadores'] <- mean(jobs_cbos$valor_remuneracao_media)
         tabela[1, '10 a 14 anos'] <- table(jobs_cbos$faixa_etaria == 1)[2]
@@ -160,12 +163,22 @@ for(i in 1:nrow(municipios)) {
         tabela[2, '36,0 a 59,9 meses'] <- mean(jobs_cbos[jobs_cbos$tempo_emprego == 6, ]$valor_remuneracao_media)
         tabela[2, '60,0 a 119,9 meses'] <- mean(jobs_cbos[jobs_cbos$tempo_emprego == 7, ]$valor_remuneracao_media)
         tabela[2, '120,0 meses ou mais'] <- mean(jobs_cbos[jobs_cbos$tempo_emprego == 8, ]$valor_remuneracao_media)
+        tabela <- tabela %>% replace(is.na(.), 0)
         
         tabela_mun <- rbind(tabela_mun, tabela)
+        
+        #Merge cells
+        row_begin = 2*j
+        row_end = (2*j)+1
+        mergeCells(wb, paste(municipios[i, "nome_mun"], municipios[i, "sigla"], sep=" - "), cols = 1:1, rows = row_begin:row_end)
+        mergeCells(wb, paste(municipios[i, "nome_mun"], municipios[i, "sigla"], sep=" - "), cols = 2:2, rows = row_begin:row_end)
+
     }
     
     #Salva aba do municipio
     writeData(wb, paste(municipios[i, "nome_mun"], municipios[i, "sigla"], sep=" - "), tabela_mun, startRow = 1, startCol = 1)
+    
+    
 }
 
 #Salva planilha
