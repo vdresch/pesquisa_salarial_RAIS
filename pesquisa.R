@@ -27,7 +27,7 @@ bq_auth(email = config$email)
 #Tabela de suporte com nomes dos municípios, estados e CBOS
 tab_mun <- read_excel("suporte/municipios.xlsx")
 tab_uf <- read_excel("suporte/ufs.xlsx")
-tab_cbos <- read.csv("lista_cbos.csv", encoding = "UTF-8")
+tab_cbos <- read.csv("suporte/lista_cbos.csv", encoding = "UTF-8")
 
 ###########################           Get data            ##########################
 
@@ -182,4 +182,4 @@ for(i in 1:nrow(municipios)) {
 }
 
 #Salva planilha
-saveWorkbook(wb, file = "resultado.xlsx", overwrite = TRUE)
+saveWorkbook(wb, file = "Results/resultado.xlsx", overwrite = TRUE)
